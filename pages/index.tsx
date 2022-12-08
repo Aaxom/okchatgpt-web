@@ -45,6 +45,9 @@ export default function Home() {
         <a href="https://openai.com" target="_blank" rel="noopener noreferrer">
           Powered by{" OpenAI"}
         </a>
+        <a href="https://github.com/Aaxom/okchatgpt-web" target="_blank" rel="noopener noreferrer">
+          Github
+        </a>
       </footer>
     </div>
   );
