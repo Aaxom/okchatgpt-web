@@ -1,6 +1,13 @@
-import { useEffect, useState, useRef } from "react";
+import { Fragment, useEffect, useState, useRef } from "react";
 import { fetchSSE } from "./fetch-sse.mjs";
 import { v4 as uuidv4 } from "uuid";
+import { CopyToClipboard } from "react-copy-to-clipboard";
+import { Menu, Transition } from "@headlessui/react";
+import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import { ToastContainer, toast } from "react-toastify";
+import TextareaAutosize from "react-textarea-autosize";
+import "react-toastify/dist/ReactToastify.css";
+import { MegaphoneIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 type ChatHistory = {
   id: string;
@@ -39,12 +46,15 @@ const DEMO_HISTORY = [
   },
 ];
 
+type ToastMessageType = "info" | "success" | "warning" | "error";
+
 export default function Chat() {
   let historyEnd = useRef<HTMLDivElement>(null);
+  let inputRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [history, setHistory] = useState<ChatHistory[]>([]);
   const [showHistory, setShowHistory] = useState(true);
   const [showInput, setShowInput] = useState(true);
@@ -55,8 +65,169 @@ export default function Chat() {
   const [parentMessageId, setParentMessageId] = useState("");
   const [conversationId, setConversationId] = useState("");
 
+  const [timer, setTimer] = useState<NodeJS.Timeout | undefined>(undefined);
+  const [timeoutCounter, setTimeoutCounter] = useState(0);
+  const [showBanner, setShowBanner] = useState(true);
+
   const prevHistory = useRef<ChatHistory[]>(history);
 
+  const handleSubmit = (inputContent: string) => {
+    if (inputContent !== "") {
+      prevHistory.current = history;
+      // historyEnd.current?.scrollIntoView({
+      //   behavior: "smooth",
+      // });
+
+      setLoading(true);
+      setInput("");
+      let id = uuidv4();
+      setHistory([
+        ...history,
+        {
+          id: id,
+          input: inputContent,
+          output: "...",
+          loading: true,
+          error: false,
+        },
+      ]);
+
+      getAnswer(id, inputContent, (id: string, text: string) => {
+        console.log(`output: ${text}`);
+        setHistory([
+          ...prevHistory.current,
+          {
+            id: id,
+            input: inputContent,
+            output: text,
+            loading: false,
+            error: false,
+          },
+        ]);
+      });
+    } else {
+      inputRef.current?.focus();
+      notify("请输入内容！", "warning");
+    }
+  };
+  useEffect(() => {
+    inputRef.current?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit(input);
+      }
+    });
+
+    return () => {};
+  }, []);
+
+  const notify = (content: string, type: string = "info") => {
+    switch (type) {
+      case "info":
+        toast.info(content, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+        });
+        break;
+      case "success":
+        toast.success(content, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+        });
+        break;
+      case "warning":
+        toast.warning(content, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+        });
+        break;
+      case "error":
+        toast.error(content, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+        });
+        break;
+      default:
+        toast.info(content, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "dark",
+        });
+        break;
+    }
+  };
+
+  const getBanner = () => {
+    return (
+      <div className="w-full bg-yellow-600">
+        <div className="mx-auto max-w-7xl py-2 px-2 sm:px-4 lg:px-6">
+          <div className="flex flex-wrap items-center justify-between">
+            <div className="flex w-0 flex-1 items-center">
+              <span className="flex rounded-lg bg-orange-600 p-2">
+                <MegaphoneIcon
+                  className="h-4 w-4 text-white"
+                  aria-hidden="true"
+                />
+              </span>
+              <p className="ml-3 font-medium text-white">
+                <span className="md:inline">
+                  {"当前使用人数较多，如果加载缓慢，请稍后随缘重试。🙉🙊🙈"}
+                </span>
+              </p>
+            </div>
+            {/* <div className="order-3 mt-2 w-full flex-shrink-0 sm:order-2 sm:mt-0 sm:w-auto">
+              <a
+                href="#"
+                className="flex items-center justify-center rounded-md border border-transparent bg-white px-4 py-2 text-sm font-medium text-indigo-600 shadow-sm hover:bg-indigo-50"
+              >
+                Learn more
+              </a>
+            </div> */}
+            <div className="order-2 flex-shrink-0 sm:order-3 sm:ml-3">
+              <button
+                type="button"
+                className="-mr-1 flex rounded-md p-1 hover:bg-orange-500 focus:outline-none focus:ring-2 focus:ring-white sm:-mr-2"
+                onClick={() => {
+                  setShowBanner(false);
+                }}
+              >
+                <XMarkIcon className="h-4 w-4 text-white" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const getAnswer = async (id: string, question: string, callback: any) => {
     let body = "";
     console.log(
@@ -74,16 +245,52 @@ export default function Chat() {
       });
     }
 
-    await fetchSSE("http://119.91.201.57:8000/msg", {
+    await fetchSSE("http://119.91.201.57:38080/msg", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: body,
       onMessage(message: string) {
-        console.debug("sse message", message);
+        console.debug("full sse message", message);
+        console.log("id", id);
         if (message === "[DONE]") {
           // enable Input
+          setLoading(false);
+          // let t = setTimeout(() => {
+          //   console.log("start run code in setTimeout...");
+
+          //   try {
+          //     console.log("history", history);
+          //     let final = history.find((item) => item.id === id);
+          //     if (final) {
+          //       final.loading = false;
+          //       setHistory([...prevHistory.current, final]);
+          //       console.log("final", final);
+          //     }
+
+          //     clearTimeout(t);
+          //   } catch (error) {
+          //     clearTimeout(t);
+          //     console.log("error", error);
+          //   }
+          // }, 5000);
+          console.log("history", history);
+          return;
+        }
+        if (message === "[ERROR]") {
+          console.error("sse error", errorMsg);
+          setHistory([
+            ...prevHistory.current,
+            {
+              id: id,
+              input: question,
+              output: "服务器出错了，可能ChatGPT崩了，请稍后重试。",
+              loading: false,
+              error: true,
+            },
+          ]);
+          setErrorMsg("服务器出错了，可能ChatGPT崩了，请稍后重试。");
           setLoading(false);
           return;
         }
@@ -92,7 +299,7 @@ export default function Chat() {
         setConversationId(data.conversation_id ? data.conversation_id : "");
         const text = data.message?.content?.parts?.[0];
         if (text) {
-          callback(text);
+          callback(id, text);
         }
       },
       onError(error: Error) {
@@ -102,27 +309,120 @@ export default function Chat() {
           {
             id: id,
             input: question,
-            output: "服务器出错了",
+            output: "服务器出错了，可能ChatGPT崩了，请稍后重试。",
             loading: false,
             error: true,
           },
-        ])
-        setError(true);
+        ]);
+        setErrorMsg("服务器出错了，可能ChatGPT崩了，请稍后重试。");
         setLoading(false);
       },
     });
   };
 
+  const renderChatGPTOutput = (output: string) => {
+    if (loading && output === "...") {
+      return (
+        <div>
+          <svg
+            className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            ></path>
+          </svg>
+        </div>
+      );
+    } else {
+      return <div>{output}</div>;
+    }
+  };
   const getChatHistory = (chats: ChatHistory[]) => {
     if (chats.length == 0) {
-      return <div className="p-2">暂无聊天记录</div>;
+      return (
+        <div className="p-4 w-full h-full place-items-center">
+          <div className="flex flex-col">
+            <div className="flex flex-col justify-center items-center my-2 md:my-4">
+              <div className="text-center font-extrabold text-transparent text-4xl sm:text-6xl lg:text-8xl bg-clip-text bg-gradient-to-r from-purple-500 to-pink-600">
+                欢迎使用ChatGPT
+              </div>
+              <div className="text-gray-300 pt-4 md:pt-8">
+                输入你想说的话，ChatGPT会回复你。
+              </div>
+            </div>
+
+            <div className="my-2 md:my-8 grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-8">
+              <CopyToClipboard
+                text={"用简单的术语解释量子计算。"}
+                onCopy={() => {
+                  console.log("copied");
+                  notify("已复制到剪贴板！", "success");
+                }}
+              >
+                <div className="p-8 md:p-4 rounded-lg shadow-2xl mt-4 w-full border-b border-gray-900/50 text-gray-200 group bg-gradient-to-br from-gray-600 to-gray-900 transition ease-in-out delay-150 duration-300 hover:-translate-y-1 hover:scale-110">
+                  {`"用简单的术语解释量子计算。"`}
+                </div>
+              </CopyToClipboard>
+
+              <CopyToClipboard
+                text={"给一个10岁的孩子过生日有什么创意吗？"}
+                onCopy={() => {
+                  console.log("copied");
+                  notify("已复制到剪贴板！", "success");
+                }}
+              >
+                <div className="p-8 md:p-4 rounded-lg shadow-2xl mt-4 w-full border-b border-gray-900/50 text-gray-200 group bg-gradient-to-br from-red-700 to-yellow-500 transition ease-in-out delay-150 duration-300 hover:-translate-y-1 hover:scale-110">
+                  {`"给一个10岁的孩子过生日有什么创意吗？"`}
+                </div>
+              </CopyToClipboard>
+              <CopyToClipboard
+                text={"我如何在javascript中做一个htpt请求？"}
+                onCopy={() => {
+                  console.log("copied");
+                  notify("已复制到剪贴板！", "success");
+                }}
+              >
+                <div className="p-8 md:p-4 rounded-lg shadow-2xl mt-4 w-full border-b border-gray-900/50 text-gray-200 group bg-gradient-to-br from-green-600 to-blue-600 transition ease-in-out delay-150 duration-300 hover:-translate-y-1 hover:scale-110">
+                  {`"我如何在javascript中做一个htpt请求？"`}
+                </div>
+              </CopyToClipboard>
+              <CopyToClipboard
+                text={"请以成长为主题写一篇作文，不少于800字。"}
+                onCopy={() => {
+                  console.log("copied");
+                  notify("已复制到剪贴板！", "success");
+                }}
+              >
+                <div className="p-8 md:p-4 rounded-lg shadow-2xl mt-4 w-full border-b border-gray-900/50 text-gray-200 group bg-gradient-to-br from-indigo-600 to-rose-600 transition ease-in-out delay-150 duration-300 hover:-translate-y-1 hover:scale-110">
+                  {`"请以成长为主题写一篇作文，不少于800字。"`}
+                </div>
+              </CopyToClipboard>
+            </div>
+          </div>
+        </div>
+      );
     }
     return chats.map((item, index) => {
       return (
         <div key={index} className="w-full">
           {showInput && (
-            <div className="w-full border-b border-black/10 dark:border-gray-900/50 text-gray-800 dark:text-gray-100 group dark:bg-gray-800">
-              <div className="text-base gap-6 m-auto md:max-w-2xl lg:max-w-2xl xl:max-w-3xl p-4 md:py-6 flex">
+            <div
+              className={`transition-opacity ease-in-out duration-700 opacity-100 hover:opacity-100 rounded-lg shadow-lg mt-4 w-full border-b border-black/10 dark:border-gray-900/50 text-gray-800 dark:text-gray-100 group bg-gradient-to-br from-gray-600`}
+            >
+              <div className="text-base gap-3 m-auto md:max-w-2xl lg:max-w-2xl xl:max-w-3xl p-4 md:py-6 flex">
                 <div className="w-[30px] flex flex-col relative items-end">
                   <div className="relative h-[30px] w-[30px] p-1 rounded-sm text-white flex items-center justify-center">
                     <span
@@ -142,14 +442,18 @@ export default function Chat() {
                     我:
                   </div>
                 </div>
-                <div className="relative lg:w-[calc(100%-115px)] w-full flex flex-col p-1">
+                <div className="relative w-full flex flex-col p-1">
                   {item.input}
                 </div>
               </div>
             </div>
           )}
           {showOutput && (
-            <div className="w-full border-b border-black/10 dark:border-gray-900/50 text-gray-800 dark:text-gray-100 group bg-gray-50 dark:bg-[#444654]">
+            <div
+              className={`${
+                item.loading ? "animate-pulse" : ""
+              } transition-opacity ease-in-out duration-700 opacity-100 hover:opacity-100 rounded-lg shadow-lg mt-4 w-full border-b border-black/10 dark:border-gray-900/50 text-gray-800 dark:text-gray-100 group bg-gradient-to-br from-gray-400`}
+            >
               <div className="text-base gap-6 m-auto md:max-w-2xl lg:max-w-2xl xl:max-w-3xl p-4 md:py-6 flex">
                 <div className="w-[30px] flex flex-col relative items-end">
                   <div className="relative h-[30px] w-[30px] p-1 rounded-sm text-white flex items-center justify-center">
@@ -159,7 +463,7 @@ export default function Chat() {
                       viewBox="0 0 41 41"
                       fill="none"
                       xmlns="http://www.w3.org/2000/svg"
-                      stroke-width="1.5"
+                      strokeWidth="1.5"
                       className="w-6 h-6"
                     >
                       <path
@@ -170,10 +474,102 @@ export default function Chat() {
                   </div>
                 </div>
 
-                <div className="relative lg:w-[calc(100%-115px)] w-full flex flex-col">
+                <div className="relative w-full flex flex-col">
+                  <div>
+                    <div
+                      className={`float-right ${item.loading ? "hidden" : ""}`}
+                    >
+                      <Menu
+                        as="div"
+                        className="relative inline-block text-left"
+                      >
+                        <Menu.Button className="inline-flex w-full justify-center rounded-md bg-black bg-opacity-20 px-2 py-1 text-sm font-medium text-white hover:bg-opacity-30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75">
+                          操作
+                          <ChevronDownIcon
+                            className="ml-2 -mr-1 h-5 w-5 text-violet-200 hover:text-violet-100"
+                            aria-hidden="true"
+                          />
+                        </Menu.Button>
+                        <Transition
+                          as={Fragment}
+                          enter="transition ease-out duration-100"
+                          enterFrom="transform opacity-0 scale-95"
+                          enterTo="transform opacity-100 scale-100"
+                          leave="transition ease-in duration-75"
+                          leaveFrom="transform opacity-100 scale-100"
+                          leaveTo="transform opacity-0 scale-95"
+                        >
+                          <Menu.Items className="z-20 absolute right-0 mt-2 w-56 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <div className="px-1 py-1 ">
+                              <Menu.Item>
+                                {({ active }) => (
+                                  <div>
+                                    <CopyToClipboard
+                                      text={item.output}
+                                      onCopy={() => {
+                                        notify("已复制到剪贴板！", "success");
+                                      }}
+                                    >
+                                      <button
+                                        className={`${
+                                          active
+                                            ? "bg-gray-500 text-white"
+                                            : "text-gray-900"
+                                        } group flex w-full items-center rounded-md px-2 py-2 text-sm`}
+                                      >
+                                        {active ? (
+                                          <DuplicateActiveIcon
+                                            className="mr-2 h-5 w-5"
+                                            aria-hidden="true"
+                                          />
+                                        ) : (
+                                          <DuplicateInactiveIcon
+                                            className="mr-2 h-5 w-5"
+                                            aria-hidden="true"
+                                          />
+                                        )}
+                                        复制
+                                      </button>
+                                    </CopyToClipboard>
+                                  </div>
+                                )}
+                              </Menu.Item>
+                              <Menu.Item>
+                                {({ active }) => (
+                                  <button
+                                    className={`${
+                                      active
+                                        ? "bg-gray-500 text-white"
+                                        : "text-gray-900"
+                                    } group flex w-full items-center rounded-md px-2 py-2 text-sm`}
+                                    onClick={() => {
+                                      notify("别急，还在开发呢。。。", "info");
+                                    }}
+                                  >
+                                    {active ? (
+                                      <ShareActiveIcon
+                                        className="mr-2 h-5 w-5"
+                                        aria-hidden="true"
+                                      />
+                                    ) : (
+                                      <ShareInactiveIcon
+                                        className="mr-2 h-5 w-5"
+                                        aria-hidden="true"
+                                      />
+                                    )}
+                                    分享
+                                  </button>
+                                )}
+                              </Menu.Item>
+                            </div>
+                          </Menu.Items>
+                        </Transition>
+                      </Menu>
+                    </div>
+                  </div>
                   <div className="min-h-[20px] whitespace-pre-wrap flex flex-col items-start gap-4 p-1">
-                    <div className="request-:R2d6:-1 markdown prose dark:prose-invert break-words light">
-                      <div>{item.output}</div>
+                    <div className="markdown prose light">
+                      {renderChatGPTOutput(item.output)}
                     </div>
                   </div>
                 </div>
@@ -186,8 +582,8 @@ export default function Chat() {
   };
 
   return (
-    <div className="overflow-hidden w-full h-full relative">
-      <nav className="w-full p-5 z-10 bg-black fixed sm:justify-center space-x-4">
+    <div className="bg-transparent overflow-hidden w-full h-full relative">
+      <nav className="bg-opacity-0 backdrop-blur w-full p-5 z-10 bg-transparent fixed sm:justify-center space-x-4">
         {[
           ["首页", "/"],
           ["联系", "mailto:aaxomlee@gmail.com"],
@@ -195,15 +591,16 @@ export default function Chat() {
           <a
             key={url}
             href={url}
-            className="rounded-lg px-3 py-2 text-slate-700 font-medium hover:bg-slate-100 hover:text-slate-900"
+            className="rounded-lg px-3 py-2 text-white font-medium hover:bg-slate-100 hover:text-slate-900"
           >
             {title}
           </a>
         ))}
       </nav>
+      {showBanner ? <div className="mt-16 w-full">{getBanner()}</div> : ""}
       <div className="m-5">
-        <main className="relative w-full transition-width flex flex-col overflow-hidden h-full items-stretch flex-1">
-          <div className="w-full mt-10 flex-1 overflow-hidden mb-16 lg:mb-20">
+        <main className="relative w-full transition-width flex flex-col h-full items-stretch flex-1">
+          <div className="w-full mt-10 flex-1 mb-16 lg:mb-20">
             <div className="max-w-2xl h-full mx-auto">
               <div className="flex flex-col items-center text-sm h-full">
                 {getChatHistory(history)}
@@ -218,14 +615,17 @@ export default function Chat() {
               </div>
             </div>
           </div>
-          <div className="fixed bg-black bottom-0 left-0 w-full">
+          <div className="z-10 bg-opacity-0 backdrop-blur fixed bg-transparent bottom-0 left-0 w-full">
             <div className="flex flex-row stretch gap-3 mx-2 pt-2 lg:mx-auto lg:pt-6 lg:max-w-3xl last:mb-2 md:last:mb-6">
               <div className="relative flex-1 h-full flex flex-col">
                 <div className="flex flex-col w-full py-2 pl-3 relative dark:text-white rounded-md">
-                  <textarea
-                    className="resize-none rounded-lg border-solid border-2 border-sky-500 p-2 w-full"
-                    placeholder="输入内容..."
-                    rows={1}
+                  <TextareaAutosize
+                    ref={inputRef}
+                    minRows={1}
+                    className={`${
+                      loading ? "cursor-not-allowed " : ""
+                    }resize-none max-h-fit rounded-lg border-solid border-2 border-gray-500 caret-blue-300 focus:border-blue-300 p-2 w-full`}
+                    placeholder={loading ? "正在等待AI回答..." : "输入内容..."}
                     value={input}
                     onChange={(e) => {
                       setInput(e.target.value);
@@ -233,49 +633,70 @@ export default function Chat() {
                     disabled={loading}
                   />
                   <button
-                    className="fixed m-5 p-1 rounded-md text-gray-500 bottom-1.5 right-1 md:bottom-5 md:right-1 lg:right-32 xl:right-72 2xl:right-1/4 2xl:mr-28 hover:bg-gray-100 dark:hover:text-gray-400 dark:hover:bg-gray-900 disabled:hover:bg-transparent dark:disabled:hover:bg-transparent"
+                    className={`${
+                      loading ? "cursor-not-allowed " : ""
+                    }fixed m-5 p-1 rounded-md text-gray-500 bottom-0.5 right-1 md:bottom-5 md:right-1 lg:right-32 xl:right-72 2xl:right-1/4 2xl:mr-28 hover:bg-gray-100 dark:hover:text-gray-400 dark:hover:bg-gray-900 disabled:hover:bg-transparent dark:disabled:hover:bg-transparent`}
+                    disabled={loading}
                     onClick={() => {
-                      console.log(`input: ${input}, submit btn clicked...`);
-                      prevHistory.current = history;
-                      // historyEnd.current?.scrollIntoView({
-                      //   behavior: "smooth",
+                      handleSubmit(input);
+                      // console.log(`input: ${input}, submit btn clicked...`);
+                      // // 开启计时器
+                      // // setTimer(
+                      // //   setInterval(() => {
+                      // //     if (timeoutCounter <= 30) {
+                      // //       console.log(`timeoutCounter: ${timeoutCounter}`);
+                      // //       setTimeoutCounter(timeoutCounter + 1);
+                      // //     } else {
+                      // //       clearInterval(timer);
+                      // //       setLoading(false);
+                      // //       setErrorMsg(
+                      // //         "服务器出错了，可能ChatGPT崩了，请稍后重试。"
+                      // //       );
+                      // //       setTimeoutCounter(0);
+                      // //     }
+                      // //   }, 1000)
+                      // // );
+
+                      // prevHistory.current = history;
+                      // // historyEnd.current?.scrollIntoView({
+                      // //   behavior: "smooth",
+                      // // });
+
+                      // setLoading(true);
+                      // setInput("");
+                      // let id = uuidv4();
+                      // setHistory([
+                      //   ...history,
+                      //   {
+                      //     id: id,
+                      //     input: input,
+                      //     output: "...",
+                      //     loading: true,
+                      //     error: false,
+                      //   },
+                      // ]);
+
+                      // getAnswer(id, input, (id: string, text: string) => {
+                      //   console.log(`output: ${text}`);
+                      //   setHistory([
+                      //     ...prevHistory.current,
+                      //     {
+                      //       id: id,
+                      //       input: input,
+                      //       output: text,
+                      //       loading: false,
+                      //       error: false,
+                      //     },
+                      //   ]);
                       // });
-
-                      setLoading(true);
-                      setInput("");
-                      let id = uuidv4();
-                      setHistory([
-                        ...history,
-                        {
-                          id: id,
-                          input: input,
-                          output: "...",
-                          loading: true,
-                          error: false,
-                        },
-                      ]);
-
-                      getAnswer(id, input, (text: string) => {
-                        console.log(`output: ${text}`);
-                        setHistory([
-                          ...prevHistory.current,
-                          {
-                            id: id,
-                            input: input,
-                            output: text,
-                            loading: true,
-                            error: false,
-                          },
-                        ]);
-                      });
                     }}
                   >
                     <svg
                       stroke="currentColor"
                       fill="currentColor"
-                      stroke-width="0"
+                      strokeWidth="0"
                       viewBox="0 0 20 20"
-                      className="w-4 h-4 rotate-90"
+                      className="w-6 h-6 rotate-90"
                       height="1em"
                       width="1em"
                       xmlns="http://www.w3.org/2000/svg"
@@ -289,6 +710,85 @@ export default function Chat() {
           </div>
         </main>
       </div>
+      <ToastContainer />
     </div>
+  );
+}
+
+function DuplicateInactiveIcon(props: any) {
+  return (
+    <svg
+      {...props}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M4 4H12V12H4V4Z"
+        fill="#4e535d"
+        stroke="#1e2836"
+        strokeWidth="2"
+      />
+      <path
+        d="M8 8H16V16H8V8Z"
+        fill="#4e535d"
+        stroke="#1e2836"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function DuplicateActiveIcon(props: any) {
+  return (
+    <svg
+      {...props}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M4 4H12V12H4V4Z"
+        fill="#1e2836"
+        stroke="#4e535d"
+        strokeWidth="2"
+      />
+      <path
+        d="M8 8H16V16H8V8Z"
+        fill="#1e2836"
+        stroke="#4e535d"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function ShareInactiveIcon(props: any) {
+  return (
+    <svg
+      {...props}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M10 4H16V10" stroke="#4e535d" strokeWidth="2" />
+      <path d="M16 4L8 12" stroke="#4e535d" strokeWidth="2" />
+      <path d="M8 6H4V16H14V12" stroke="#4e535d" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function ShareActiveIcon(props: any) {
+  return (
+    <svg
+      {...props}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M10 4H16V10" stroke="#4e535d" strokeWidth="2" />
+      <path d="M16 4L8 12" stroke="#4e535d" strokeWidth="2" />
+      <path d="M8 6H4V16H14V12" stroke="#4e535d" strokeWidth="2" />
+    </svg>
   );
 }
