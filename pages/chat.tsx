@@ -1,13 +1,20 @@
 import { Fragment, useEffect, useState, useRef } from "react";
 import { fetchSSE } from "./fetch-sse.mjs";
+import { fetchText } from "./fetch-text.mjs";
 import { v4 as uuidv4 } from "uuid";
 import { CopyToClipboard } from "react-copy-to-clipboard";
+import * as Popover from "@radix-ui/react-popover";
 import { Menu, Transition } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
+import { Switch } from "@headlessui/react";
 import { ToastContainer, toast } from "react-toastify";
 import TextareaAutosize from "react-textarea-autosize";
 import "react-toastify/dist/ReactToastify.css";
-import { MegaphoneIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import {
+  MegaphoneIcon,
+  XMarkIcon,
+  QuestionMarkCircleIcon,
+} from "@heroicons/react/24/outline";
 
 type ChatHistory = {
   id: string;
@@ -17,36 +24,38 @@ type ChatHistory = {
   error: boolean;
 };
 
-const DEMO_HISTORY = [
-  {
-    input: "你好！",
-    output: "你好！",
-    loading: false,
-    error: false,
-  },
-  {
-    input: "你是谁？",
-    output: "我是ChatGPT。",
-    loading: false,
-    error: false,
-  },
-  {
-    input: "做一下自我介绍吧！",
-    output:
-      "我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。",
-    loading: false,
-    error: false,
-  },
-  {
-    input: "再做一下自我介绍吧！",
-    output:
-      "我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。",
-    loading: false,
-    error: false,
-  },
-];
+// const DEMO_HISTORY = [
+//   {
+//     input: "你好！",
+//     output: "你好！",
+//     loading: false,
+//     error: false,
+//   },
+//   {
+//     input: "你是谁？",
+//     output: "我是ChatGPT。",
+//     loading: false,
+//     error: false,
+//   },
+//   {
+//     input: "做一下自我介绍吧！",
+//     output:
+//       "我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。",
+//     loading: false,
+//     error: false,
+//   },
+//   {
+//     input: "再做一下自我介绍吧！",
+//     output:
+//       "我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。",
+//     loading: false,
+//     error: false,
+//   },
+// ];
 
 type ToastMessageType = "info" | "success" | "warning" | "error";
+
+type FetchMode = "text" | "sse";
 
 export default function Chat() {
   let historyEnd = useRef<HTMLDivElement>(null);
@@ -59,15 +68,12 @@ export default function Chat() {
   const [showHistory, setShowHistory] = useState(true);
   const [showInput, setShowInput] = useState(true);
   const [showOutput, setShowOutput] = useState(true);
-  const [showLoading, setShowLoading] = useState(true);
-  const [showError, setShowError] = useState(true);
 
   const [parentMessageId, setParentMessageId] = useState("");
   const [conversationId, setConversationId] = useState("");
 
-  const [timer, setTimer] = useState<NodeJS.Timeout | undefined>(undefined);
-  const [timeoutCounter, setTimeoutCounter] = useState(0);
   const [showBanner, setShowBanner] = useState(true);
+  const [fetchMode, setFetchMode] = useState<FetchMode>("text");
 
   const prevHistory = useRef<ChatHistory[]>(history);
 
@@ -110,16 +116,14 @@ export default function Chat() {
       notify("请输入内容！", "warning");
     }
   };
-  useEffect(() => {
-    inputRef.current?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit(input);
-      }
-    });
 
-    return () => {};
+  useEffect(() => {
+    console.log("useEffect");
   }, []);
+
+  // useEffect(() => {
+  //   console.log("fetchMode changed: ", fetchMode);
+  // }, [fetchMode]);
 
   const notify = (content: string, type: string = "info") => {
     switch (type) {
@@ -200,7 +204,7 @@ export default function Chat() {
               </span>
               <p className="ml-3 font-medium text-white">
                 <span className="md:inline">
-                  {"当前使用人数较多，如果加载缓慢，请稍后随缘重试。🙉🙊🙈"}
+                  {"当前使用人数较多，如果加载缓慢，请稍后重试。🙉🙊🙈有任何问题可以加Q群671616422反馈~"}
                 </span>
               </p>
             </div>
@@ -230,7 +234,7 @@ export default function Chat() {
   };
   const getAnswer = async (id: string, question: string, callback: any) => {
     let body = "";
-    console.log(
+    console.debug(
       `parentMessageId: ${parentMessageId}, conversationId: ${conversationId}`
     );
     if (parentMessageId !== "" && conversationId !== "") {
@@ -245,41 +249,66 @@ export default function Chat() {
       });
     }
 
-    await fetchSSE("http://119.91.201.57:38080/msg", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: body,
-      onMessage(message: string) {
-        console.debug("full sse message", message);
-        console.log("id", id);
-        if (message === "[DONE]") {
-          // enable Input
-          setLoading(false);
-          // let t = setTimeout(() => {
-          //   console.log("start run code in setTimeout...");
+    if (fetchMode === "sse") {
+      await fetchSSE("http://119.91.201.57:38080/msg", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: body,
+        onMessage(message: string) {
+          console.debug("full sse message", message);
+          console.log("id", id);
+          if (message === "[DONE]") {
+            // enable Input
+            setLoading(false);
+            // let t = setTimeout(() => {
+            //   console.log("start run code in setTimeout...");
 
-          //   try {
-          //     console.log("history", history);
-          //     let final = history.find((item) => item.id === id);
-          //     if (final) {
-          //       final.loading = false;
-          //       setHistory([...prevHistory.current, final]);
-          //       console.log("final", final);
-          //     }
+            //   try {
+            //     console.log("history", history);
+            //     let final = history.find((item) => item.id === id);
+            //     if (final) {
+            //       final.loading = false;
+            //       setHistory([...prevHistory.current, final]);
+            //       console.log("final", final);
+            //     }
 
-          //     clearTimeout(t);
-          //   } catch (error) {
-          //     clearTimeout(t);
-          //     console.log("error", error);
-          //   }
-          // }, 5000);
-          console.log("history", history);
-          return;
-        }
-        if (message === "[ERROR]") {
-          console.error("sse error", errorMsg);
+            //     clearTimeout(t);
+            //   } catch (error) {
+            //     clearTimeout(t);
+            //     console.log("error", error);
+            //   }
+            // }, 5000);
+            console.log("history", history);
+            return;
+          }
+          if (message === "[ERROR]") {
+            console.error("sse error", errorMsg);
+            setHistory([
+              ...prevHistory.current,
+              {
+                id: id,
+                input: question,
+                output: "服务器出错了，可能ChatGPT崩了，请稍后重试。",
+                loading: false,
+                error: true,
+              },
+            ]);
+            setErrorMsg("服务器出错了，可能ChatGPT崩了，请稍后重试。");
+            setLoading(false);
+            return;
+          }
+          const data = JSON.parse(message);
+          setParentMessageId(data.message?.id);
+          setConversationId(data.conversation_id ? data.conversation_id : "");
+          const text = data.message?.content?.parts?.[0];
+          if (text) {
+            callback(id, text);
+          }
+        },
+        onError(error: Error) {
+          console.error("sse error", error);
           setHistory([
             ...prevHistory.current,
             {
@@ -292,32 +321,93 @@ export default function Chat() {
           ]);
           setErrorMsg("服务器出错了，可能ChatGPT崩了，请稍后重试。");
           setLoading(false);
-          return;
-        }
-        const data = JSON.parse(message);
-        setParentMessageId(data.message?.id);
-        setConversationId(data.conversation_id ? data.conversation_id : "");
-        const text = data.message?.content?.parts?.[0];
-        if (text) {
-          callback(id, text);
-        }
-      },
-      onError(error: Error) {
-        console.error("sse error", error);
-        setHistory([
-          ...prevHistory.current,
-          {
-            id: id,
-            input: question,
-            output: "服务器出错了，可能ChatGPT崩了，请稍后重试。",
-            loading: false,
-            error: true,
+        },
+      });
+    } else {
+      try {
+        const resp = await fetchText("http://119.91.201.57:38080/msg", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        ]);
-        setErrorMsg("服务器出错了，可能ChatGPT崩了，请稍后重试。");
+          body: body,
+        });
+
+        console.debug("resp", resp);
+        setParentMessageId(resp.parent_id);
+        setConversationId(resp.conversation_id);
         setLoading(false);
-      },
-    });
+        callback(id, resp.message);
+      } catch (error) {
+        console.error("fetch error", error);
+        const errorString = "" + error;
+        if (errorString.includes("Too many requests")) {
+          setHistory([
+            ...prevHistory.current,
+            {
+              id: id,
+              input: question,
+              output: "当前太多人使用了，被OpenAI限流了，请1小时后重试。",
+              loading: false,
+              error: true,
+            },
+          ]);
+          setErrorMsg("当前太多人使用了，被OpenAI限流了，请1小时后重试。");
+        } else if (errorString.includes("Missing necessary credentials")) {
+          setHistory([
+            ...prevHistory.current,
+            {
+              id: id,
+              input: question,
+              output: "账号信息失效，请联系开发者或稍后重试。",
+              loading: false,
+              error: true,
+            },
+          ]);
+          setErrorMsg("账号信息失效，请联系开发者或稍后重试。");
+        } else if (errorString.includes("Incorrect response from OpenAI API")) {
+          setHistory([
+            ...prevHistory.current,
+            {
+              id: id,
+              input: question,
+              output: "OpenAI官方接口崩了，请稍后重试。",
+              loading: false,
+              error: true,
+            },
+          ]);
+          setErrorMsg("OpenAI官方接口崩了，请稍后重试。");
+        } else if (errorString.includes("something seems to have gone wrong")) {
+          setHistory([
+            ...prevHistory.current,
+            {
+              id: id,
+              input: question,
+              output:
+                "可能触发了OpenAPI内容限制政策，请稍后重试并注意合规使用。",
+              loading: false,
+              error: true,
+            },
+          ]);
+          setErrorMsg(
+            "可能触发了OpenAPI内容限制政策，请稍后重试并注意合规使用。。"
+          );
+        } else {
+          setHistory([
+            ...prevHistory.current,
+            {
+              id: id,
+              input: question,
+              output: "服务器出错了，请稍后重试。错误信息：" + error,
+              loading: false,
+              error: true,
+            },
+          ]);
+          setErrorMsg("服务器出错了，请稍后重试。错误信息：" + error);
+        }
+        setLoading(false);
+      }
+    }
   };
 
   const renderChatGPTOutput = (output: string) => {
@@ -596,6 +686,56 @@ export default function Chat() {
             {title}
           </a>
         ))}
+        <div className="float-right flex flex-row gap-2">
+          <div className="m-0">
+            <Popover.Root>
+              <Popover.Trigger className="flex flex-row gap-0">
+                <div className="p-1">
+                  <QuestionMarkCircleIcon
+                    className="h-4 w-4 text-white"
+                    aria-hidden="true"
+                  />
+                </div>
+                开启流式传输
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content className="z-20 bg-white text-black rounded p-5 w-52">
+                  开启流式传输可以实时获取聊天结果，但是在官方接口异常时可能造成无限加载。如果发现开启该功能后，加载时间反而变长，请刷新网页或关闭该功能。
+                  <Popover.Arrow className="fill-white" />
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          </div>
+          <div className="mt-0.5">
+            <Switch
+              checked={fetchMode === "sse"}
+              onChange={() => {
+                if (!loading) {
+                  if (fetchMode === "text") {
+                    setFetchMode("sse");
+                  } else {
+                    setFetchMode("text");
+                  }
+                } else {
+                  notify("请等待当前请求完成", "info");
+                }
+              }}
+              className={`${
+                fetchMode === "sse" ? "bg-purple-600" : "bg-gray-300"
+              }
+          relative inline-flex h-[21px] w-[37px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2  focus-visible:ring-white focus-visible:ring-opacity-75`}
+            >
+              <span className="sr-only">流式传输开关</span>
+              <span
+                aria-hidden="true"
+                className={`${
+                  fetchMode === "sse" ? "translate-x-4" : "translate-x-0"
+                }
+            pointer-events-none inline-block h-[17px] w-[17px] transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out`}
+              />
+            </Switch>
+          </div>
+        </div>
       </nav>
       {showBanner ? <div className="mt-16 w-full">{getBanner()}</div> : ""}
       <div className="m-5">
