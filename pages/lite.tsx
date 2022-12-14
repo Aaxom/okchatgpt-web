@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useState, useRef } from "react";
-import { fetchSSE } from "./fetch-sse.mjs";
-import { fetchText } from "./fetch-text.mjs";
+import { fetchLite } from "./fetch-lite.mjs";
 import { v4 as uuidv4 } from "uuid";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import * as Popover from "@radix-ui/react-popover";
@@ -24,40 +23,44 @@ type ChatHistory = {
   error: boolean;
 };
 
-// const DEMO_HISTORY = [
-//   {
-//     input: "你好！",
-//     output: "你好！",
-//     loading: false,
-//     error: false,
-//   },
-//   {
-//     input: "你是谁？",
-//     output: "我是ChatGPT。",
-//     loading: false,
-//     error: false,
-//   },
-//   {
-//     input: "做一下自我介绍吧！",
-//     output:
-//       "我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。",
-//     loading: false,
-//     error: false,
-//   },
-//   {
-//     input: "再做一下自我介绍吧！",
-//     output:
-//       "我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。",
-//     loading: false,
-//     error: false,
-//   },
-// ];
+const DEMO_HISTORY = [
+  {
+    id: "1",
+    input: "你好！",
+    output: "你好！",
+    loading: false,
+    error: false,
+  },
+  {
+    id: "2",
+    input: "你是谁？",
+    output: "我是ChatGPT。",
+    loading: false,
+    error: false,
+  },
+  {
+    id: "3",
+    input: "做一下自我介绍吧！",
+    output:
+      "我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。",
+    loading: false,
+    error: false,
+  },
+  {
+    id: "4",
+    input: "再做一下自我介绍吧！",
+    output:
+      "我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。我是ChatGPT，一个基于GPT-3的聊天机器人。",
+    loading: false,
+    error: false,
+  },
+];
 
 type ToastMessageType = "info" | "success" | "warning" | "error";
 
 type FetchMode = "text" | "sse";
 
-export default function Chat() {
+export default function LiteChat() {
   let historyEnd = useRef<HTMLDivElement>(null);
   let inputRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
@@ -71,7 +74,7 @@ export default function Chat() {
   const [conversationId, setConversationId] = useState("");
 
   const [showBanner, setShowBanner] = useState(true);
-  const [fetchMode, setFetchMode] = useState<FetchMode>("sse");
+  const [fetchMode, setFetchMode] = useState<FetchMode>("text");
 
   const prevHistory = useRef<ChatHistory[]>(history);
 
@@ -203,7 +206,7 @@ export default function Chat() {
               <p className="ml-3 font-medium text-white">
                 <span className="md:inline">
                   {
-                    "尝试开启流式传输，对于长文回复加速效果明显🚀🚀🚀。有任何问题和建议可以加Q群671616422反馈~"
+                    "GPT3是ChatGPT底层算法，回复效果比ChatGPT弱一些儿，因为没有进一步调优。有任何问题和建议可以加Q群671616422反馈~"
                   }
                 </span>
               </p>
@@ -249,156 +252,31 @@ export default function Chat() {
       });
     }
 
-    if (fetchMode === "sse") {
-      await fetchSSE("http://119.91.201.57:38080/msg", {
+    try {
+      const resp = await fetchLite("http://119.91.201.57:38080/litemsg", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: body,
-        onMessage(message: string) {
-          console.debug("full sse message", message);
-          console.log("id", id);
-          if (message.includes("[DONE]")) {
-            // enable Input
-            setLoading(false);
-            // let t = setTimeout(() => {
-            //   console.log("start run code in setTimeout...");
-
-            //   try {
-            //     console.log("history", history);
-            //     let final = history.find((item) => item.id === id);
-            //     if (final) {
-            //       final.loading = false;
-            //       setHistory([...prevHistory.current, final]);
-            //       console.log("final", final);
-            //     }
-
-            //     clearTimeout(t);
-            //   } catch (error) {
-            //     clearTimeout(t);
-            //     console.log("error", error);
-            //   }
-            // }, 5000);
-            console.log("history", history);
-            return;
-          }
-          if (message === "[ERROR]") {
-            console.error("sse error");
-            setHistory([
-              ...prevHistory.current,
-              {
-                id: id,
-                input: question,
-                output:
-                  "服务器出错了，可能OpenAI的官方接口又崩了，请稍后重试。",
-                loading: false,
-                error: true,
-              },
-            ]);
-            setLoading(false);
-            return;
-          }
-          const data = JSON.parse(message);
-          setParentMessageId(data.message?.id);
-          setConversationId(data.conversation_id ? data.conversation_id : "");
-          const text = data.message?.content?.parts?.[0];
-          if (text) {
-            callback(id, text);
-          }
-        },
-        onError(error: Error) {
-          console.error("sse error", error);
-          setHistory([
-            ...prevHistory.current,
-            {
-              id: id,
-              input: question,
-              output: "服务器出错了，可能OpenAI的官方接口又崩了，请稍后重试。",
-              loading: false,
-              error: true,
-            },
-          ]);
-          setLoading(false);
-        },
       });
-    } else {
-      try {
-        const resp = await fetchText("http://119.91.201.57:38080/msg", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: body,
-        });
 
-        console.debug("resp", resp);
-        setParentMessageId(resp.parent_id);
-        setConversationId(resp.conversation_id);
-        setLoading(false);
-        callback(id, resp.message);
-      } catch (error) {
-        console.error("fetch error", error);
-        const errorString = "" + error;
-        if (errorString.includes("Too many requests")) {
-          setHistory([
-            ...prevHistory.current,
-            {
-              id: id,
-              input: question,
-              output: "当前太多人使用了，被OpenAI限流了，请1小时后重试。",
-              loading: false,
-              error: true,
-            },
-          ]);
-        } else if (errorString.includes("Missing necessary credentials")) {
-          setHistory([
-            ...prevHistory.current,
-            {
-              id: id,
-              input: question,
-              output: "账号信息失效，请联系开发者或稍后重试。",
-              loading: false,
-              error: true,
-            },
-          ]);
-        } else if (errorString.includes("Incorrect response from OpenAI API")) {
-          setHistory([
-            ...prevHistory.current,
-            {
-              id: id,
-              input: question,
-              output: "OpenAI官方接口崩了，请稍后重试。",
-              loading: false,
-              error: true,
-            },
-          ]);
-        } else if (errorString.includes("something seems to have gone wrong")) {
-          setHistory([
-            ...prevHistory.current,
-            {
-              id: id,
-              input: question,
-              output:
-                "可能触发了OpenAPI内容限制政策，请稍后重试并注意合规使用。",
-              loading: false,
-              error: true,
-            },
-          ]);
-        } else {
-          setHistory([
-            ...prevHistory.current,
-            {
-              id: id,
-              input: question,
-              output: "服务器出错了，请稍后重试。错误信息：" + error,
-              loading: false,
-              error: true,
-            },
-          ]);
-        }
-        setLoading(false);
-      }
+      console.debug("resp", resp);
+      setLoading(false);
+      callback(id, resp.message);
+    } catch (error) {
+      console.error("fetch error", error);
+      setHistory([
+        ...prevHistory.current,
+        {
+          id: id,
+          input: question,
+          output: "服务器出错了，请稍后重试。错误信息：" + error,
+          loading: false,
+          error: true,
+        },
+      ]);
+      setLoading(false);
     }
   };
 
@@ -406,9 +284,7 @@ export default function Chat() {
     if (loading && output === "...") {
       return (
         <div className="flex flex-row">
-          <span>
-            正在思考中（若加载超过1分钟，可能是官方接口限流，可先尝试使用轻量版）...&nbsp;&nbsp;
-          </span>
+          <span>正在思考中...&nbsp;&nbsp;</span>
           <span>
             <svg
               className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -444,10 +320,10 @@ export default function Chat() {
           <div className="flex flex-col">
             <div className="flex flex-col justify-center items-center my-2 md:my-4">
               <div className="text-center font-extrabold text-transparent text-4xl sm:text-6xl lg:text-8xl bg-clip-text bg-gradient-to-r from-purple-500 to-pink-600">
-                欢迎使用ChatGPT
+                欢迎使用GPT3
               </div>
               <div className="text-gray-300 pt-4 md:pt-8">
-                输入你想说的话，ChatGPT会回复你。
+                输入你想说的话，GPT3会回复你。
               </div>
             </div>
 
@@ -673,70 +549,20 @@ export default function Chat() {
 
   return (
     <div className="bg-transparent overflow-hidden w-full h-full relative">
-      <nav className="bg-opacity-0 backdrop-blur w-full py-5 sm:px-1 md:px-5 z-10 bg-transparent fixed sm:justify-center sm:space-x-0 md:space-x-3">
+      <nav className="bg-opacity-0 backdrop-blur w-full p-5 z-10 bg-transparent fixed sm:justify-center space-x-1">
         {[
           ["首页", "/"],
-          ["轻量版", "/lite"],
+          ["优化版", "/chat"],
           ["联系", "mailto:aaxomlee@gmail.com"],
         ].map(([title, url]) => (
           <a
             key={url}
             href={url}
-            className="rounded-lg px-2 md:px-3 py-1 md:py-2 text-white font-medium hover:bg-slate-100 hover:text-slate-900"
+            className="rounded-lg px-3 py-2 text-white font-medium hover:bg-slate-100 hover:text-slate-900"
           >
             {title}
           </a>
         ))}
-        <div className="float-right flex flex-row gap-2">
-          <div className="m-0">
-            <Popover.Root>
-              <Popover.Trigger className="flex flex-row gap-0">
-                <div className="p-1">
-                  <QuestionMarkCircleIcon
-                    className="h-4 w-4 text-white"
-                    aria-hidden="true"
-                  />
-                </div>
-                流式传输
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content className="z-20 bg-white text-black rounded p-5 w-52">
-                  开启流式传输可以实时获取聊天结果，但是在官方接口异常时可能造成无限加载。如果发现开启该功能后，加载时间反而变长，请刷新网页或关闭该功能。
-                  <Popover.Arrow className="fill-white" />
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
-          </div>
-          <div className="mt-0.5">
-            <Switch
-              checked={fetchMode === "sse"}
-              onChange={() => {
-                if (!loading) {
-                  if (fetchMode === "text") {
-                    setFetchMode("sse");
-                  } else {
-                    setFetchMode("text");
-                  }
-                } else {
-                  notify("请等待当前请求完成", "info");
-                }
-              }}
-              className={`${
-                fetchMode === "sse" ? "bg-purple-600" : "bg-gray-300"
-              }
-          relative inline-flex h-[21px] w-[37px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2  focus-visible:ring-white focus-visible:ring-opacity-75`}
-            >
-              <span className="sr-only">流式传输开关</span>
-              <span
-                aria-hidden="true"
-                className={`${
-                  fetchMode === "sse" ? "translate-x-4" : "translate-x-0"
-                }
-            pointer-events-none inline-block h-[17px] w-[17px] transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out`}
-              />
-            </Switch>
-          </div>
-        </div>
       </nav>
       {showBanner ? <div className="mt-16 w-full">{getBanner()}</div> : ""}
       <div className="m-5">
