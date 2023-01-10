@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import { fetchLite } from "./fetch-lite.mjs";
 import { v4 as uuidv4 } from "uuid";
 import { CopyToClipboard } from "react-copy-to-clipboard";
@@ -13,7 +14,9 @@ import {
   MegaphoneIcon,
   XMarkIcon,
   QuestionMarkCircleIcon,
+  LightBulbIcon,
 } from "@heroicons/react/24/outline";
+import { useGlobal, useGlobalDispatch } from "../components/layout";
 
 type ChatHistory = {
   id: string;
@@ -61,6 +64,9 @@ type ToastMessageType = "info" | "success" | "warning" | "error";
 type FetchMode = "text" | "sse";
 
 export default function LiteChat() {
+  const { userProfile, isLoggedIn, fetchMode } = useGlobal();
+  const globalDispatch = useGlobalDispatch();
+
   let historyEnd = useRef<HTMLDivElement>(null);
   let inputRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
@@ -74,7 +80,8 @@ export default function LiteChat() {
   const [conversationId, setConversationId] = useState("");
 
   const [showBanner, setShowBanner] = useState(true);
-  const [fetchMode, setFetchMode] = useState<FetchMode>("text");
+  const [showBanner2, setShowBanner2] = useState(isLoggedIn? false : true);
+  // const [fetchMode, setFetchMode] = useState<FetchMode>("text");
 
   const prevHistory = useRef<ChatHistory[]>(history);
 
@@ -205,9 +212,11 @@ export default function LiteChat() {
               </span>
               <p className="ml-3 font-medium text-white">
                 <span className="md:inline">
-                  {
-                    "GPT3是ChatGPT底层算法，回复效果比ChatGPT弱一些儿，因为没有进一步调优。有任何问题和建议可以加Q群671616422反馈~"
-                  }
+                  如果账号都挂了，推荐到{" "}
+                  <a href="https://taoid.xyz" className="underline">
+                    taoid.xyz
+                  </a>{" "}
+                  代购独享账号，使用优惠券OkChatGPT可获得7折优惠
                 </span>
               </p>
             </div>
@@ -235,31 +244,84 @@ export default function LiteChat() {
       </div>
     );
   };
+  const getBanner2 = () => {
+    return (
+      <div className="w-full bg-sky-600">
+        <div className="mx-auto max-w-7xl py-2 px-2 sm:px-4 lg:px-6">
+          <div className="flex flex-wrap items-center justify-between">
+            <div className="flex w-0 flex-1 items-center">
+              <span className="flex rounded-lg bg-blue-600 p-2">
+                <LightBulbIcon
+                  className="h-4 w-4 text-white"
+                  aria-hidden="true"
+                />
+              </span>
+              <p className="ml-3 font-medium text-white">
+                <span className="md:inline">
+                  <Link
+                    href="https://link.terobox.com/okchatgpt"
+                    target="_blank"
+                    className="underline"
+                  >
+                    登录
+                  </Link>
+                  &nbsp;后可进行连贯对话（未登录时AI无记忆功能，说一句忘一句）
+                </span>
+              </p>
+            </div>
+            <div className="order-2 flex-shrink-0 sm:order-3 sm:ml-3">
+              <button
+                type="button"
+                className="-mr-1 flex rounded-md p-1 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-white sm:-mr-2"
+                onClick={() => {
+                  setShowBanner2(false);
+                }}
+              >
+                <XMarkIcon className="h-4 w-4 text-white" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const getAnswer = async (id: string, question: string, callback: any) => {
-    let body = "";
+    let bodyObj: any = {};
     console.debug(
       `parentMessageId: ${parentMessageId}, conversationId: ${conversationId}`
     );
     if (parentMessageId !== "" && conversationId !== "") {
-      body = JSON.stringify({
-        msg: question,
+      bodyObj = {
+        content: question,
         parent_message_id: parentMessageId,
-        conversation_id: conversationId,
-      });
+        conversation_uuid: conversationId,
+      };
     } else {
-      body = JSON.stringify({
-        msg: question,
-      });
+      bodyObj = {
+        content: question,
+      };
     }
 
     try {
-      const resp = await fetchLite("http://119.91.201.57:38080/litemsg", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: body,
-      });
+      const resp = await fetchLite(
+        `${process.env.BACKEND_API_URL}/api/litemsg`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: isLoggedIn
+              ? `Bearer ${localStorage.getItem("token")}`
+              : undefined,
+          },
+          body: JSON.stringify({
+            ...bodyObj,
+            conversation_uuid: isLoggedIn ? conversationId : undefined,
+          }),
+        }
+      );
+      if (resp.conversation_uuid) {
+        setConversationId(resp.conversation_uuid);
+      }
 
       console.debug("resp", resp);
       setLoading(false);
@@ -323,7 +385,7 @@ export default function LiteChat() {
                 欢迎使用GPT3
               </div>
               <div className="text-gray-300 pt-4 md:pt-8">
-                输入你想说的话，GPT3会回复你。
+                GPT3是ChatGPT底层算法，回复效果比ChatGPT弱一点儿，因为没有进一步更新和调优模型。
               </div>
             </div>
 
@@ -383,7 +445,7 @@ export default function LiteChat() {
         <div key={index} className="w-full">
           {showInput && (
             <div
-              className={`transition-opacity ease-in-out duration-700 opacity-100 hover:opacity-100 rounded-lg shadow-lg mt-4 w-full border-b border-black/10 dark:border-gray-900/50 text-gray-800 dark:text-gray-100 group bg-gradient-to-br from-gray-600`}
+              className={`transition-opacity ease-in-out duration-700 opacity-100 hover:opacity-100 rounded-lg shadow-lg mt-4 w-full border-b border-black/10 border-gray-900/50 text-gray-800 text-gray-100 group bg-gradient-to-br from-gray-600`}
             >
               <div className="text-base gap-3 m-auto md:max-w-2xl lg:max-w-2xl xl:max-w-3xl p-4 md:py-6 flex">
                 <div className="w-[30px] flex flex-col relative items-end">
@@ -415,7 +477,7 @@ export default function LiteChat() {
             <div
               className={`${
                 item.loading ? "animate-pulse" : ""
-              } transition-opacity ease-in-out duration-700 opacity-100 hover:opacity-100 rounded-lg shadow-lg mt-4 w-full border-b border-black/10 dark:border-gray-900/50 text-gray-800 dark:text-gray-100 group bg-gradient-to-br from-gray-400`}
+              } transition-opacity ease-in-out duration-700 opacity-100 hover:opacity-100 rounded-lg shadow-lg mt-4 w-full border-b border-black/10 border-gray-900/50 text-gray-800 text-gray-100 group bg-gradient-to-br from-gray-400`}
             >
               <div className="text-base gap-6 m-auto md:max-w-2xl lg:max-w-2xl xl:max-w-3xl p-4 md:py-6 flex">
                 <div className="w-[30px] flex flex-col relative items-end">
@@ -549,11 +611,12 @@ export default function LiteChat() {
 
   return (
     <div className="bg-transparent overflow-hidden w-full h-full relative">
-      <nav className="bg-opacity-0 backdrop-blur w-full p-5 z-10 bg-transparent fixed sm:justify-center space-x-1">
+      {/* <nav className="bg-opacity-0 backdrop-blur w-full p-5 z-10 bg-transparent fixed sm:justify-center space-x-1">
         {[
           ["首页", "/"],
           ["优化版", "/chat"],
-          ["联系", "mailto:aaxomlee@gmail.com"],
+          ["加群", "https://jq.qq.com/?_wv=1027&k=e01ZjnJv"],
+          ["捐赠", "/donate"],
         ].map(([title, url]) => (
           <a
             key={url}
@@ -563,11 +626,18 @@ export default function LiteChat() {
             {title}
           </a>
         ))}
-      </nav>
+      </nav> */}
       {showBanner ? <div className="mt-16 w-full">{getBanner()}</div> : ""}
-      <div className="m-5">
+      {showBanner2 ? (
+        <div className={`${showBanner ? "mt-1" : "mt-16"} w-full`}>
+          {getBanner2()}
+        </div>
+      ) : (
+        ""
+      )}
+      <div className={`${!showBanner && !showBanner ? "mt-16 " : ""} m-5`}>
         <main className="relative w-full transition-width flex flex-col h-full items-stretch flex-1">
-          <div className="w-full mt-10 flex-1 mb-16 lg:mb-20">
+          <div className="w-full sm:mt-0 md:mt-10 flex-1 mb-16 lg:mb-20">
             <div className="max-w-2xl h-full mx-auto">
               <div className="flex flex-col items-center text-sm h-full">
                 {getChatHistory(history)}
@@ -602,7 +672,7 @@ export default function LiteChat() {
                   <button
                     className={`${
                       loading ? "cursor-not-allowed " : ""
-                    }fixed m-5 p-1 rounded-md text-gray-500 bottom-0.5 right-1 md:bottom-5 md:right-1 lg:right-32 xl:right-72 2xl:right-1/4 2xl:mr-28 hover:bg-gray-100 dark:hover:text-gray-400 dark:hover:bg-gray-900 disabled:hover:bg-transparent dark:disabled:hover:bg-transparent`}
+                    }fixed m-5 p-1 rounded-md text-gray-500 bottom-0.5 right-1 md:bottom-5 md:right-1 lg:right-32 xl:right-72 2xl:right-1/4 2xl:mr-28 hover:bg-gray-100 hover:text-gray-400 hover:bg-gray-900 disabled:hover:bg-transparent disabled:hover:bg-transparent`}
                     disabled={loading}
                     onClick={() => {
                       handleSubmit(input);

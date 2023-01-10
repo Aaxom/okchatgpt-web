@@ -7,14 +7,17 @@ import * as Popover from "@radix-ui/react-popover";
 import { Menu, Transition } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { Switch } from "@headlessui/react";
+import Link from "next/link";
 import { ToastContainer, toast } from "react-toastify";
 import TextareaAutosize from "react-textarea-autosize";
 import "react-toastify/dist/ReactToastify.css";
 import {
+  LightBulbIcon,
   MegaphoneIcon,
   XMarkIcon,
   QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
+import { useGlobal, useGlobalDispatch } from "../components/layout";
 
 type ChatHistory = {
   id: string;
@@ -55,9 +58,12 @@ type ChatHistory = {
 
 type ToastMessageType = "info" | "success" | "warning" | "error";
 
-type FetchMode = "text" | "sse";
+// type FetchMode = "text" | "sse";
 
 export default function Chat() {
+  const { userProfile, isLoggedIn, fetchMode } = useGlobal();
+  const globalDispatch = useGlobalDispatch();
+
   let historyEnd = useRef<HTMLDivElement>(null);
   let inputRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
@@ -71,7 +77,8 @@ export default function Chat() {
   const [conversationId, setConversationId] = useState("");
 
   const [showBanner, setShowBanner] = useState(true);
-  const [fetchMode, setFetchMode] = useState<FetchMode>("sse");
+  const [showBanner2, setShowBanner2] = useState(true);
+  // const [fetchMode, setFetchMode] = useState<FetchMode>("sse");
 
   const prevHistory = useRef<ChatHistory[]>(history);
 
@@ -202,20 +209,10 @@ export default function Chat() {
               </span>
               <p className="ml-3 font-medium text-white">
                 <span className="md:inline">
-                  {
-                    "尝试开启流式传输，对于长文回复加速效果明显🚀🚀🚀。有任何问题和建议可以加Q群671616422反馈~"
-                  }
+                  {"有任何问题和建议可以加Q群671616422反馈~"}
                 </span>
               </p>
             </div>
-            {/* <div className="order-3 mt-2 w-full flex-shrink-0 sm:order-2 sm:mt-0 sm:w-auto">
-              <a
-                href="#"
-                className="flex items-center justify-center rounded-md border border-transparent bg-white px-4 py-2 text-sm font-medium text-indigo-600 shadow-sm hover:bg-indigo-50"
-              >
-                Learn more
-              </a>
-            </div> */}
             <div className="order-2 flex-shrink-0 sm:order-3 sm:ml-3">
               <button
                 type="button"
@@ -232,28 +229,83 @@ export default function Chat() {
       </div>
     );
   };
+  const getBanner2 = () => {
+    return (
+      <div className="w-full bg-sky-600">
+        <div className="mx-auto max-w-7xl py-2 px-2 sm:px-4 lg:px-6">
+          <div className="flex flex-wrap items-center justify-between">
+            <div className="flex w-0 flex-1 items-center">
+              <span className="flex rounded-lg bg-blue-600 p-2">
+                <LightBulbIcon
+                  className="h-4 w-4 text-white"
+                  aria-hidden="true"
+                />
+              </span>
+              <p className="ml-3 font-medium text-white">
+                <span className="md:inline">
+                  如果账号都挂了，可&nbsp;
+                  <Link
+                    href="https://link.terobox.com/okchatgpt"
+                    target="_blank"
+                    className="underline"
+                  >
+                    点此处
+                  </Link>
+                  &nbsp;获取共享账号登录ChatGPT提问
+                </span>
+              </p>
+            </div>
+            <div className="order-2 flex-shrink-0 sm:order-3 sm:ml-3">
+              <button
+                type="button"
+                className="-mr-1 flex rounded-md p-1 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-white sm:-mr-2"
+                onClick={() => {
+                  setShowBanner2(false);
+                }}
+              >
+                <XMarkIcon className="h-4 w-4 text-white" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const getAnswer = async (id: string, question: string, callback: any) => {
     let body = "";
     console.debug(
       `parentMessageId: ${parentMessageId}, conversationId: ${conversationId}`
     );
     if (parentMessageId !== "" && conversationId !== "") {
-      body = JSON.stringify({
-        msg: question,
-        parent_message_id: parentMessageId,
-        conversation_id: conversationId,
-      });
+      if (isLoggedIn) {
+        body = JSON.stringify({
+          content: question,
+          // parent_message_id: parentMessageId,
+          parent_id: parentMessageId,
+          // conversation_uuid: conversationId,
+          conversation_id: conversationId,
+        });
+      } else {
+        body = JSON.stringify({
+          content: question,
+          parent_message_id: parentMessageId,
+          conversation_uuid: conversationId,
+        });
+      }
     } else {
       body = JSON.stringify({
-        msg: question,
+        content: question,
       });
     }
 
     if (fetchMode === "sse") {
-      await fetchSSE("http://119.91.201.57:38080/msg", {
+      await fetchSSE(`${process.env.BACKEND_API_URL}/api/msg`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: isLoggedIn
+            ? `Bearer ${localStorage.getItem("token")}`
+            : undefined,
         },
         body: body,
         onMessage(message: string) {
@@ -290,8 +342,7 @@ export default function Chat() {
               {
                 id: id,
                 input: question,
-                output:
-                  "服务器出错了，可能OpenAI的官方接口又崩了，请稍后重试。",
+                output: "优化版需要登录后使用", // "服务器出错了，可能OpenAI的官方接口又崩了，请稍后重试。",
                 loading: false,
                 error: true,
               },
@@ -314,7 +365,7 @@ export default function Chat() {
             {
               id: id,
               input: question,
-              output: "服务器出错了，可能OpenAI的官方接口又崩了，请稍后重试。",
+              output: "优化版需要登录后使用", // "服务器出错了，可能OpenAI的官方接口又崩了，请稍后重试。",
               loading: false,
               error: true,
             },
@@ -324,13 +375,20 @@ export default function Chat() {
       });
     } else {
       try {
-        const resp = await fetchText("http://119.91.201.57:38080/msg", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        const resp = await fetchText(
+          `${process.env.BACKEND_API_URL}/api/msg`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: isLoggedIn
+                ? `Bearer ${localStorage.getItem("token")}`
+                : undefined,
+            },
+            body: body,
           },
-          body: body,
-        });
+          isLoggedIn
+        );
 
         console.debug("resp", resp);
         setParentMessageId(resp.parent_id);
@@ -434,6 +492,37 @@ export default function Chat() {
         </div>
       );
     } else {
+      if (output === "...") {
+        return (
+          <div className="flex flex-row">
+            <span>
+              正在思考中（若加载超过1分钟，可能是官方接口限流，可先尝试使用轻量版）...&nbsp;&nbsp;
+            </span>
+            <span>
+              <svg
+                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+            </span>
+          </div>
+        );
+      }
       return <div>{output}</div>;
     }
   };
@@ -507,7 +596,7 @@ export default function Chat() {
         <div key={index} className="w-full">
           {showInput && (
             <div
-              className={`transition-opacity ease-in-out duration-700 opacity-100 hover:opacity-100 rounded-lg shadow-lg mt-4 w-full border-b border-black/10 dark:border-gray-900/50 text-gray-800 dark:text-gray-100 group bg-gradient-to-br from-gray-600`}
+              className={`transition-opacity ease-in-out duration-700 opacity-100 hover:opacity-100 rounded-lg shadow-lg mt-4 w-full border-b border-black/10 border-gray-900/50 text-gray-800 text-gray-100 group bg-gradient-to-br from-gray-600`}
             >
               <div className="text-base gap-3 m-auto md:max-w-2xl lg:max-w-2xl xl:max-w-3xl p-4 md:py-6 flex">
                 <div className="w-[30px] flex flex-col relative items-end">
@@ -539,7 +628,7 @@ export default function Chat() {
             <div
               className={`${
                 item.loading ? "animate-pulse" : ""
-              } transition-opacity ease-in-out duration-700 opacity-100 hover:opacity-100 rounded-lg shadow-lg mt-4 w-full border-b border-black/10 dark:border-gray-900/50 text-gray-800 dark:text-gray-100 group bg-gradient-to-br from-gray-400`}
+              } transition-opacity ease-in-out duration-700 opacity-100 hover:opacity-100 rounded-lg shadow-lg mt-4 w-full border-b border-black/10 border-gray-900/50 text-gray-800 text-gray-100 group bg-gradient-to-br from-gray-400`}
             >
               <div className="text-base gap-6 m-auto md:max-w-2xl lg:max-w-2xl xl:max-w-3xl p-4 md:py-6 flex">
                 <div className="w-[30px] flex flex-col relative items-end">
@@ -673,75 +762,17 @@ export default function Chat() {
 
   return (
     <div className="bg-transparent overflow-hidden w-full h-full relative">
-      <nav className="bg-opacity-0 backdrop-blur w-full py-5 sm:px-1 md:px-5 z-10 bg-transparent fixed sm:justify-center sm:space-x-0 md:space-x-3">
-        {[
-          ["首页", "/"],
-          ["轻量版", "/lite"],
-          ["联系", "mailto:aaxomlee@gmail.com"],
-        ].map(([title, url]) => (
-          <a
-            key={url}
-            href={url}
-            className="rounded-lg px-2 md:px-3 py-1 md:py-2 text-white font-medium hover:bg-slate-100 hover:text-slate-900"
-          >
-            {title}
-          </a>
-        ))}
-        <div className="float-right flex flex-row gap-2">
-          <div className="m-0">
-            <Popover.Root>
-              <Popover.Trigger className="flex flex-row gap-0">
-                <div className="p-1">
-                  <QuestionMarkCircleIcon
-                    className="h-4 w-4 text-white"
-                    aria-hidden="true"
-                  />
-                </div>
-                流式传输
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content className="z-20 bg-white text-black rounded p-5 w-52">
-                  开启流式传输可以实时获取聊天结果，但是在官方接口异常时可能造成无限加载。如果发现开启该功能后，加载时间反而变长，请刷新网页或关闭该功能。
-                  <Popover.Arrow className="fill-white" />
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
-          </div>
-          <div className="mt-0.5">
-            <Switch
-              checked={fetchMode === "sse"}
-              onChange={() => {
-                if (!loading) {
-                  if (fetchMode === "text") {
-                    setFetchMode("sse");
-                  } else {
-                    setFetchMode("text");
-                  }
-                } else {
-                  notify("请等待当前请求完成", "info");
-                }
-              }}
-              className={`${
-                fetchMode === "sse" ? "bg-purple-600" : "bg-gray-300"
-              }
-          relative inline-flex h-[21px] w-[37px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2  focus-visible:ring-white focus-visible:ring-opacity-75`}
-            >
-              <span className="sr-only">流式传输开关</span>
-              <span
-                aria-hidden="true"
-                className={`${
-                  fetchMode === "sse" ? "translate-x-4" : "translate-x-0"
-                }
-            pointer-events-none inline-block h-[17px] w-[17px] transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out`}
-              />
-            </Switch>
-          </div>
-        </div>
-      </nav>
       {showBanner ? <div className="mt-16 w-full">{getBanner()}</div> : ""}
-      <div className="m-5">
+      {showBanner2 ? (
+        <div className={`${showBanner ? "mt-1" : "mt-16"} w-full`}>
+          {getBanner2()}
+        </div>
+      ) : (
+        ""
+      )}
+      <div className={`${!showBanner && !showBanner ? "mt-16 " : ""} m-5`}>
         <main className="relative w-full transition-width flex flex-col h-full items-stretch flex-1">
-          <div className="w-full mt-10 flex-1 mb-16 lg:mb-20">
+          <div className="w-full sm:mt-0 md:mt-10 flex-1 mb-16 lg:mb-20">
             <div className="max-w-2xl h-full mx-auto">
               <div className="flex flex-col items-center text-sm h-full">
                 {getChatHistory(history)}
@@ -776,7 +807,7 @@ export default function Chat() {
                   <button
                     className={`${
                       loading ? "cursor-not-allowed " : ""
-                    }fixed m-5 p-1 rounded-md text-gray-500 bottom-0.5 right-1 md:bottom-5 md:right-1 lg:right-32 xl:right-72 2xl:right-1/4 2xl:mr-28 hover:bg-gray-100 dark:hover:text-gray-400 dark:hover:bg-gray-900 disabled:hover:bg-transparent dark:disabled:hover:bg-transparent`}
+                    }fixed m-5 p-1 rounded-md text-gray-500 bottom-0.5 right-1 md:bottom-5 md:right-1 lg:right-32 xl:right-72 2xl:right-1/4 2xl:mr-28 hover:bg-gray-100 hover:text-gray-400 hover:bg-gray-900 disabled:hover:bg-transparent disabled:hover:bg-transparent`}
                     disabled={loading}
                     onClick={() => {
                       handleSubmit(input);

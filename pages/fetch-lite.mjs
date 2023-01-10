@@ -7,9 +7,13 @@ export async function fetchLite(resource, fetchOptions) {
 
     const respJsonObj = JSON.parse(respText)
 
-    let message = respJsonObj["reply"]
+    if (response.status != 200) {
+      throw new Error(respJsonObj['error'])
+    }
+    const message = respJsonObj["message"]
     return {
       "message": message,
+      "conversation_uuid": respJsonObj["conversation_uuid"],
     }
 
   } catch (error) {
@@ -17,13 +21,11 @@ export async function fetchLite(resource, fetchOptions) {
       const resp = JSON.parse(respText)
       if (resp['error']) {
         throw new Error(resp['error'])
-      } else if (!Boolean(resp['success']) && resp['message']) {
-        throw new Error(resp['message'])
       }
+      throw new Error(error)
     } catch (error2) {
       console.error("Not a valid JSON response, " + error2.message + ", " + error.message)
       throw new Error(error2.message)
     }
-    throw new Error("Incorrect response from OpenAI API, " + error.message)
   }
 }
