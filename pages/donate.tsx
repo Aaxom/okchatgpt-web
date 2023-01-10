@@ -151,10 +151,10 @@ export default function LiteChat() {
             <div className="w-full h-full mx-auto">
               <div className="flex flex-col items-center text-sm h-full">
                 <div className="my-4 text-center font-extrabold text-transparent text-4xl sm:text-6xl lg:text-8xl bg-clip-text bg-gradient-to-r from-purple-500 to-pink-600">
-                  云乞讨
+                  捐赠我们
                 </div>
                 <div className="text-gray-300 py-4 md:py-8 text-center">
-                  距今为止，账号已经消耗了$918.00，欢迎捐赠以支持开发者继续开发。
+                  距今为止，账号已经消耗了$1318.00，欢迎捐赠以支持开发者继续开发。
                 </div>
                 <div className="flex flex-row flex-wrap gap-4">
                   <div className="flex-auto grow">

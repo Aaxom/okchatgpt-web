@@ -30,7 +30,7 @@ export default function Home() {
               src="/logo-horizontal.svg"
               alt="logo"
               width={300}
-              height={200}
+              height={300}
             />
           </div>
           {/* <div className="p-2 font-extrabold text-5xl sm:text-6xl lg:text-8xl">Ok ChatGPT</div> */}

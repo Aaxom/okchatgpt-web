@@ -38,7 +38,7 @@ let initialGlobalState: GlobalState = {
     mobile: "",
     email: "",
     avatar_url:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
+      "/logo.svg",
     description: "",
     disabled: 0,
     level: 0,
@@ -71,19 +71,12 @@ export default function Layout({ children }: any) {
   // const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
 
-  // const user = {
-  //   name: "Tom Cook",
-  //   email: "tom@example.com",
-  //   imageUrl:
-  //     "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-  // };
-
   useEffect(() => {
     console.log("Layout.tsx useEffect");
     // Perform localStorage action
     const localUserProfile = JSON.parse(
       localStorage.getItem("userProfile") ||
-        `{"uuid":"","username":"","nickname":"","mobile":"","email":"","avatar_url":"https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80","description":"","disabled":0,"level":0}`
+        `{"uuid":"","username":"","nickname":"","mobile":"","email":"","avatar_url":"/logo.svg","description":"","disabled":0,"level":0}`
     );
     const localIsLoggedIn = localStorage.getItem("isLoggedIn") === "true";
 
